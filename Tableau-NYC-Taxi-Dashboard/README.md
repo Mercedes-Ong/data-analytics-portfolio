@@ -50,16 +50,16 @@ The dashboard allows users to explore:
 
 ### Dashboard 1 – Trip Distance Analysis
 
-![Dashboard 1](dashboard1.png)
+![Dashboard 1](Dashboard1.png)
 
 ---
 
 ### Dashboard 2 – Payment Type Analysis
 
-![Dashboard 2](dashboard2.png)
+![Dashboard 2](Dashboard2.png)
 
 ---
 
 ### Dashboard 3 – Seasonal Travel Patterns
 
-![Dashboard 3](dashboard3.png)
+![Dashboard 3](Dashboard3.png)
