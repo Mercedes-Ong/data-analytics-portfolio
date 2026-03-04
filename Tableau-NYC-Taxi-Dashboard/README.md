@@ -46,14 +46,20 @@ The dashboard allows users to explore:
 
 ---
 
-## Interactive Dashboard
+## Dashboard Preview
 
-View the interactive dashboard here:
+### Dashboard 1 – Trip Distance Analysis
 
-(Paste your Tableau Public link here)
+![Dashboard 1](dashboard1.png)
 
 ---
 
-## Dashboard Preview
+### Dashboard 2 – Payment Type Analysis
 
-(Add dashboard screenshot below)
+![Dashboard 2](dashboard2.png)
+
+---
+
+### Dashboard 3 – Seasonal Travel Patterns
+
+![Dashboard 3](dashboard3.png)
