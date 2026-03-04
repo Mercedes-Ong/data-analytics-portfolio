@@ -58,13 +58,13 @@ The dataset includes variables such as:
 ![Scree Plot](pca_scree.png)
 
 ### PCA Scores Plot
-![PCA Scores](pca_scores.png)
+![PCA Scores](PCA_scores.png)
 
 ### ROBPCA Biplot
-![ROBPCA Biplot](robpca_biplot.png)
+![ROBPCA Biplot](ROBPCA_biplot.png)
 
 ### K-Means Clustering on ROBPCA Scores
-![K-Means Clusters](kmeans_clusters.png)
+![K-Means Clusters](Kmeans_ROBPCA.png)
 
 ### Cluster Groups
-![Cluster Groups](cluster_groups.png)
+![Cluster Groups](Cluster.png)
