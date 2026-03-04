@@ -53,3 +53,18 @@ The dataset includes variables such as:
 ---
 
 ## Visualisations
+
+### Robust PCA Scree Plot
+![Scree Plot](pca_scree.png)
+
+### PCA Scores Plot
+![PCA Scores](pca_scores.png)
+
+### ROBPCA Biplot
+![ROBPCA Biplot](robpca_biplot.png)
+
+### K-Means Clustering on ROBPCA Scores
+![K-Means Clusters](kmeans_clusters.png)
+
+### Cluster Groups
+![Cluster Groups](cluster_groups.png)
