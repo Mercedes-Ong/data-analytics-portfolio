@@ -1,0 +1,254 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2636
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww30040\viewh18900\viewkind0
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 -- =====================================================\
+-- Spotify Music Analysis SQL Project\
+-- Author: Mercedes Ong\
+-- Description: SQL analysis of Spotify track dataset\
+-- =====================================================\
+\
+\
+-- -----------------------------------------------------\
+-- 1. Dataset Overview\
+-- -----------------------------------------------------\
+\
+-- Count total number of songs\
+SELECT COUNT(*) AS total_songs\
+FROM spotify_tracks;\
+\
+-- Preview key columns\
+SELECT \
+    track_name,\
+    artists,\
+    track_genre,\
+    popularity\
+FROM spotify_tracks\
+LIMIT 10;\
+\
+\
+-- -----------------------------------------------------\
+-- 2. Data Quality Checks\
+-- -----------------------------------------------------\
+\
+-- Check missing values in key columns\
+SELECT COUNT(*) AS missing_key_values\
+FROM spotify_tracks\
+WHERE track_name IS NULL\
+   OR artists IS NULL\
+   OR track_genre IS NULL;\
+\
+-- Check duplicate track and artist combinations\
+SELECT \
+    track_name,\
+    artists,\
+    COUNT(*) AS duplicate_count\
+FROM spotify_tracks\
+GROUP BY track_name, artists\
+HAVING COUNT(*) > 1\
+ORDER BY duplicate_count DESC;\
+\
+-- Check popularity range\
+SELECT \
+    MIN(popularity) AS min_popularity,\
+    MAX(popularity) AS max_popularity\
+FROM spotify_tracks;\
+\
+-- Check numeric audio feature columns\
+SELECT \
+    ROUND(AVG(danceability), 3) AS avg_danceability,\
+    ROUND(AVG(energy), 3) AS avg_energy,\
+    ROUND(AVG(acousticness), 3) AS avg_acousticness\
+FROM spotify_tracks;\
+\
+\
+-- -----------------------------------------------------\
+-- 3. Create Cleaned View\
+-- -----------------------------------------------------\
+\
+DROP VIEW IF EXISTS clean_spotify;\
+\
+CREATE VIEW clean_spotify AS\
+SELECT\
+    track_name,\
+    artists,\
+    track_genre,\
+    popularity,\
+    danceability,\
+    energy,\
+    acousticness,\
+    valence,\
+    tempo,\
+    duration_ms\
+FROM spotify_tracks\
+WHERE track_name IS NOT NULL\
+  AND artists IS NOT NULL\
+  AND track_genre IS NOT NULL;\
+\
+\
+-- -----------------------------------------------------\
+-- 4. Cleaned Dataset Preview\
+-- -----------------------------------------------------\
+\
+-- Preview cleaned dataset view\
+SELECT *\
+FROM clean_spotify\
+LIMIT 5;\
+\
+\
+-- -----------------------------------------------------\
+-- 5. Genre and Artist Analysis\
+-- -----------------------------------------------------\
+\
+-- Most common genres\
+SELECT \
+    track_genre,\
+    COUNT(*) AS total_tracks\
+FROM clean_spotify\
+GROUP BY track_genre\
+ORDER BY total_tracks DESC\
+LIMIT 10;\
+\
+-- Artists with the most songs\
+SELECT \
+    artists,\
+    COUNT(*) AS total_tracks\
+FROM clean_spotify\
+GROUP BY artists\
+ORDER BY total_tracks DESC\
+LIMIT 10;\
+\
+\
+-- -----------------------------------------------------\
+-- 6. Popularity Analysis\
+-- -----------------------------------------------------\
+\
+-- Most popular songs\
+SELECT \
+    track_name,\
+    artists,\
+    popularity\
+FROM clean_spotify\
+ORDER BY popularity DESC\
+LIMIT 10;\
+\
+-- Average popularity by genre\
+SELECT \
+    track_genre,\
+    ROUND(AVG(popularity), 2) AS avg_popularity\
+FROM clean_spotify\
+GROUP BY track_genre\
+ORDER BY avg_popularity DESC\
+LIMIT 10;\
+\
+\
+-- -----------------------------------------------------\
+-- 7. Audio Feature Analysis\
+-- -----------------------------------------------------\
+\
+-- Most danceable genres\
+SELECT \
+    track_genre,\
+    ROUND(AVG(danceability), 3) AS avg_danceability\
+FROM clean_spotify\
+GROUP BY track_genre\
+ORDER BY avg_danceability DESC\
+LIMIT 10;\
+\
+-- Highest energy genres\
+SELECT \
+    track_genre,\
+    ROUND(AVG(energy), 3) AS avg_energy\
+FROM clean_spotify\
+GROUP BY track_genre\
+ORDER BY avg_energy DESC\
+LIMIT 10;\
+\
+-- Longest songs\
+SELECT \
+    track_name,\
+    artists,\
+    duration_ms\
+FROM clean_spotify\
+ORDER BY duration_ms DESC\
+LIMIT 10;\
+\
+\
+-- -----------------------------------------------------\
+-- 8. Combined Feature Analysis\
+-- -----------------------------------------------------\
+\
+-- Popular and danceable songs\
+SELECT \
+    track_name,\
+    artists,\
+    popularity,\
+    danceability\
+FROM clean_spotify\
+WHERE popularity > 80\
+  AND danceability > 0.70\
+ORDER BY popularity DESC, danceability DESC;\
+\
+-- Highly acoustic songs\
+SELECT \
+    track_name,\
+    artists,\
+    acousticness\
+FROM clean_spotify\
+WHERE acousticness > 0.90\
+ORDER BY acousticness DESC\
+LIMIT 10;\
+\
+\
+-- -----------------------------------------------------\
+-- 9. Genre Summary Table\
+-- -----------------------------------------------------\
+\
+SELECT \
+    track_genre,\
+    COUNT(*) AS total_tracks,\
+    ROUND(AVG(popularity), 2) AS avg_popularity,\
+    ROUND(AVG(danceability), 3) AS avg_danceability,\
+    ROUND(AVG(energy), 3) AS avg_energy\
+FROM clean_spotify\
+GROUP BY track_genre\
+ORDER BY avg_popularity DESC\
+LIMIT 15;\
+\
+\
+-- -----------------------------------------------------\
+-- 10. Ranking Analysis\
+-- -----------------------------------------------------\
+\
+-- Rank songs by popularity within each genre\
+SELECT\
+    track_genre,\
+    track_name,\
+    artists,\
+    popularity,\
+    RANK() OVER (\
+        PARTITION BY track_genre\
+        ORDER BY popularity DESC\
+    ) AS genre_rank\
+FROM clean_spotify\
+ORDER BY track_genre, genre_rank\
+LIMIT 20;\
+\
+\
+-- -----------------------------------------------------\
+-- 11. Feature vs Popularity Analysis\
+-- -----------------------------------------------------\
+\
+-- Compare energy levels of highly popular songs\
+SELECT\
+    track_name,\
+    artists,\
+    popularity,\
+    energy\
+FROM clean_spotify\
+WHERE popularity > 85\
+ORDER BY energy DESC\
+LIMIT 20;}
