@@ -1,0 +1,275 @@
+---
+title: "Final_Project_Code_2025"
+output: html_document
+date: "2025-05-17"
+---
+# Load libraries
+```{r}
+library(tidyverse)
+library(forecast)
+library(tseries)
+library(readxl)
+library(MonteCarlo)
+library(triangle)
+library(reshape2)
+```
+
+# Import and read in rainfall data from Bureau of Meteorology (BOM) which has been put into an excel. 
+```{r}
+rainfall_data <- read_excel("BOMdata.xlsx")
+head(rainfall_data)
+tail(rainfall_data)
+```
+
+# Create a date column and convert to data type. 
+```{r}
+rainfall_data <- rainfall_data %>%
+  mutate(Date = as.Date(paste(Year, Month, "01", sep = "-")))
+```
+
+# Convert monthly data to weekly format
+```{r}
+rainfall_data$Week <- format(rainfall_data$Date, "%Y-%U")
+weekly_rainfall <- rainfall_data %>%
+  group_by(Week) %>%
+  summarise(Weekly_mm = sum(Rainfall_mm, na.rm = TRUE))
+```
+
+# Convert weekly data to a time series format and remove NA
+```{r}
+rainfall_weekly_ts <- ts(weekly_rainfall$Weekly_mm, frequency = 52)
+rainfall_weekly_ts <- na.omit(rainfall_weekly_ts)
+```
+
+# Check stationarity using Augmented Dickey-Fuller test
+```{r}
+adf_result <- adf.test(rainfall_weekly_ts)
+print(adf_result)
+#A transformation was not needed as the p value < 0.05. 
+```
+
+# Fit the SARIMA model
+```{r}
+auto_model <- auto.arima(rainfall_weekly_ts, seasonal = TRUE)
+summary(auto_model)
+```
+
+# Forecast the next 52 weeks (1 year) and plot
+```{r}
+forecast_rain <- forecast(auto_model, h = 52)
+print(forecast_rain)
+autoplot(forecast_rain) +
+  labs(title = "52-Week Rainfall Forecast", y = "Rainfall (mm)")
+```
+
+## Water balance
+# Define constants
+```{r}
+roof_area <- 200
+runoff_efficiency <- 0.85
+household_size <- 4
+greywater_per_capita <- 100
+daily_demand_per_person <- 164
+```
+
+# Weekly greywater and demand
+```{r}
+greywater_data <- rep(household_size * greywater_per_capita * 7, length.out = 52)
+daily_demand <- household_size * daily_demand_per_person
+weekly_demand <- rep(daily_demand * 7, length.out = 52)
+```
+
+# Generate a seasonal pattern for water demand
+```{r}
+seasonal_pattern <- 1 + 0.2 * sin(2 * pi * (1:52) / 52)
+adjusted_weekly_demand <- weekly_demand * seasonal_pattern
+```
+
+# Convert rainfall to rainwater volume
+```{r}
+rainwater_volume <- function(rainfall_mm, runoff_eff = runoff_efficiency) {
+  return(rainfall_mm * roof_area * runoff_eff)
+}
+```
+
+# Water balance simulation function
+```{r}
+simulate_tank <- function(tank_size, rainfall_data, greywater_data, demand_data, runoff_eff = runoff_efficiency) {
+  tank_storage <- numeric(length = length(rainfall_data))
+  mains_water_used <- numeric(length = length(rainfall_data))
+  overflow <- 0
+  shortage <- 0
+  
+  for (week in 1:length(rainfall_data)) {
+    rainwater_vol <- rainwater_volume(rainfall_data[week])
+    total_input <- rainwater_vol + greywater_data[week]
+    prev_storage <- ifelse(week == 1, 0, tank_storage[week - 1])
+    tank_storage[week] <- min(tank_size, prev_storage + total_input)
+    
+    if (tank_storage[week] < demand_data[week]) {
+      mains_water_used[week] <- demand_data[week] - tank_storage[week]
+      tank_storage[week] <- 0
+    } else {
+      tank_storage[week] <- tank_storage[week] - demand_data[week]
+    }
+    
+    if (tank_storage[week] == tank_size) {
+      overflow <- overflow + (total_input - (tank_size - prev_storage))
+    }
+  }
+  
+  return(list(storage = tank_storage, mains_water_used = mains_water_used, overflow = overflow, shortage = shortage))
+}
+```
+
+# Define tank sizes (litres)
+```{r}
+tank_sizes <- c(2000, 5000, 10000, 3000, 7000, 8000, 4000)
+results <- lapply(tank_sizes, function(size) simulate_tank(size, forecast_rain$mean, greywater_data, adjusted_weekly_demand))
+```
+
+# Create dataframes for each tank size and combined data
+```{r}
+create_result_df <- function(result_list, size) {
+  data.frame(
+    Week = 1:52,
+    TankSize = size,
+    Storage = result_list$storage,
+    Mains = result_list$mains_water_used,
+    Overflow = result_list$overflow
+  )
+}
+
+df2000 <- create_result_df(results[[1]], 2000)
+df5000 <- create_result_df(results[[2]], 5000)
+df10000 <- create_result_df(results[[3]], 10000)
+df3000 <- create_result_df(results[[4]], 3000)
+df7000 <- create_result_df(results[[5]], 7000)
+df8000 <- create_result_df(results[[6]], 8000)
+df4000 <- create_result_df(results[[7]], 4000)
+
+combined_results <- bind_rows(df2000, df5000, df10000, df3000, df7000, df8000)
+
+```
+
+# Plot combined data
+```{r}
+combined_long <- combined_results %>%
+  select(Week, TankSize, Storage, Mains, Overflow) %>%
+  pivot_longer(cols = c(Storage, Mains, Overflow), 
+               names_to = "Parameter", 
+               values_to = "Value")
+
+#Plot mains, overflow and storage in litres over 52 weeks by tank size
+ggplot(combined_long, aes(x = Week, y = Value, color = factor(TankSize))) +
+  geom_line(linewidth = 1) +
+  facet_wrap(~ Parameter, scales = "free_y") +
+  labs(title = "Water System Parameters over 52 Weeks by Tank Size",
+       x = "Week",
+       y = "Value (Litres)",
+       color = "Tank Size (L)") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+## Cost Analysis and Bayesian Monte Carlo Simulation
+# Cost parameters
+```{r}
+installation_costs <- list("2000" = 400, "5000" = 800, "10000" = 1500, "3000" = 550, "7000" = 1000, "8000" = 1200, "4000" = 650)
+mains_water_cost_per_kL <- 2
+discount_rate <- 0.05
+years <- 10
+weeks_per_year <- 52
+```
+
+# Bayesian Monte Carlo simulation 
+```{r}
+monte_carlo_simulation <- function(tank_size, n = 1000) {
+  results <- data.frame(TankSize = rep(tank_size, n), NPV = numeric(n), CostPerLitre = numeric(n), Payback = numeric(n), PaidBack = logical(n))
+  
+  for (i in 1:n) {
+    greywater_gen <- rnorm(1, mean = 100, sd = 10)
+    weekly_greywater <- rep(household_size * greywater_gen * 7, 52)
+    demand <- rtriangle(52, a = 100 * 7 * household_size, b = 180 * 7 * household_size, c = 164 * 7 * household_size)
+    runoff_eff <- rbeta(1, shape1 = 5, shape2 = 1.2)
+    tank_cost_per_litre <- runif(1, 0.5, 1.0)
+    maintenance_cost <- rnorm(1, mean = 100, sd = 20)
+    
+    sim_result <- simulate_tank(tank_size, forecast_rain$mean, weekly_greywater, demand, runoff_eff)
+    
+    total_mains_saved <- sum(sim_result$mains_water_used)  
+    cost_mains_saved <- total_mains_saved * mains_water_cost_per_kL
+    capital_cost <- tank_cost_per_litre * tank_size + installation_costs[[as.character(tank_size)]]
+    maintenance_total <- maintenance_cost * years
+    
+    npv_savings <- sum((cost_mains_saved / (1 + discount_rate) ^ (1:years)))
+    total_cost <- capital_cost + maintenance_total
+    
+    if (total_mains_saved > 0) {
+      results$NPV[i] <- npv_savings - total_cost
+      results$CostPerLitre[i] <- total_cost / total_mains_saved
+      results$Payback[i] <- total_cost / (cost_mains_saved / years)
+      results$PaidBack[i] <- results$NPV[i] > 0
+    } else {
+      results$NPV[i] <- NA
+      results$CostPerLitre[i] <- NA
+      results$Payback[i] <- NA
+      results$PaidBack[i] <- FALSE
+    }
+  }
+  
+  return(results)
+}
+
+```
+
+# Run Monte Carlo simulation for all tank sizes
+```{r}
+monte_results <- bind_rows(lapply(tank_sizes, function(size) monte_carlo_simulation(size, n = 1000)))
+
+summary_means <- monte_results %>%
+  filter(!is.na(NPV)) %>%
+  group_by(TankSize) %>%
+  summarise(
+    Mean_NPV = mean(NPV),
+    Mean_CostPerLitre = mean(CostPerLitre),
+    Mean_Payback = mean(Payback),
+    Proportion_PaidBack = mean(PaidBack)
+  )
+
+print(summary_means)
+```
+
+# Visualise cost metrics
+```{r}
+#Plot mean NPV by tank size
+ggplot(summary_means, aes(x = factor(TankSize), y = Mean_NPV)) +
+  geom_col(fill = "steelblue") +
+  labs(title = "Mean Net Present Value by Tank Size",
+       x = "Tank Size (L)", y = "Mean NPV ($)") +
+  theme_minimal()
+
+#Plot mean cost per litre by tank size
+ggplot(summary_means, aes(x = factor(TankSize), y = Mean_CostPerLitre)) +
+  geom_col(fill = "darkorange") +
+  labs(title = "Mean Cost per Litre of Water Saved",
+       x = "Tank Size (L)", y = "Cost per Litre ($/L)") +
+  theme_minimal()
+
+#Plot mean payback period by tank size
+ggplot(summary_means, aes(x = factor(TankSize), y = Mean_Payback)) +
+  geom_col(fill = "forestgreen") +
+  labs(title = "Mean Payback Period by Tank Size",
+       x = "Tank Size (L)", y = "Years") +
+  theme_minimal()
+
+#Plot proportion of simulations where the system was paid back 
+ggplot(summary_means, aes(x = factor(TankSize), y = Proportion_PaidBack)) +
+  geom_col(fill = "purple") +
+  labs(title = "Proportion of Simulations Where System Paid Back",
+       x = "Tank Size (L)", y = "Proportion Paid Back") +
+  scale_y_continuous(labels = scales::percent) +
+  theme_minimal()
+
+```
+
