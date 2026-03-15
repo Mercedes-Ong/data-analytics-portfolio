@@ -34,8 +34,3 @@ Cross-Validation Accuracy ≈ 0.9902
 Macro-F1 ≈ 0.9901  
 
 Final selected model: **Decision Tree Classifier**
-
-## Code
-The full Python implementation can be found in:
-
-INSERT 
