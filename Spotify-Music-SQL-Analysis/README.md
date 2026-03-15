@@ -96,9 +96,7 @@ This project demonstrates several core SQL skills including:
 
 These queries were used to perform exploratory analysis and compare patterns across different genres and song characteristics.
 
----
 
-## Project Structure
 
 
 
